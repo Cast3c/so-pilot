@@ -1,44 +1,71 @@
 import { auth } from "@clerk/nextjs/server";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { posts } from "@/db/schema";
-import { createPost } from "./actions";
-import { Button } from "@/components/ui/button";
+import { postMedia, posts, socialAccounts } from "@/db/schema";
+import { buttonVariants } from "@/components/ui/button";
+import { PostCard } from "@/components/post-card";
 
 export default async function DashboardPage() {
     const { userId } = await auth.protect();
-
-    const myPosts = await db
-        .select()
+  
+    const rows = await db
+        .select({
+            id: posts.id,
+            body: posts.body,
+            status: posts.status,
+            error: posts.error,
+            createdAt: posts.createdAt,
+            accountName: socialAccounts.displayName,
+            accountAvatar: socialAccounts.avatarUrl,
+            provider: socialAccounts.provider,
+        })
         .from(posts)
+        .leftJoin(socialAccounts, eq(posts.socialAccountId, socialAccounts.id))
         .where(eq(posts.userId, userId))
         .orderBy(desc(posts.createdAt));
 
-    return (
-        <main className="mx-auto max-w-xl p-8">
-            <h1 className="mb-6 text-3xl font-bold">Dashboard</h1>
-            
-            <form action={createPost} className="flex flex-col gap-3">
-                <textarea 
-                name="body" 
-                rows={4}
-                required
-                placeholder="Que quieres publicar?"
-                className="rounded-md border p-3"
-                />
-                <Button type="submit">Guardar post</Button>
-            </form>
+    const media = rows.length
+        ? await db
+            .select()
+            .from(postMedia)
+            .where(inArray(postMedia.postId, rows.map((row) => row.id)))
+        : [];
 
-            <ul className="mt-8 flex flex-col gap-3">
-                {myPosts.map((post) => (
-                    <li key={post.id} className="rounded-md border p-4">
-                        <p>{post.body}</p>
-                        <p className="mt-2 text-sm text-muted-foreground">
-                            {post.status} - {post.createdAt.toLocaleString()}
-                        </p>
-                    </li>
-                ))}
-            </ul>
-        </main>
-    )
+    const mediaByPost = new Map(media.map((item) => [item.postId, item]));
+
+    return (
+      <main className="mx-auto max-w-2xl p-8">
+        <div className="mb-6 flex items-center justify-between">
+          <h1 className="text-3xl font-bold">Posts</h1>
+          <a href="/compose" className={buttonVariants()}>
+            New post
+          </a>
+        </div>
+
+        {rows.length === 0 ? (
+          <div className="flex flex-col items-start gap-3 rounded-lg border border-dashed p-8">
+            <p className="text-muted-foreground">
+              You have not published anything yet.
+            </p>
+            <a
+              href="/compose"
+              className={buttonVariants({ variant: "outline" })}
+            >
+              Create your first post
+            </a>
+          </div>
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {rows.map((row) => (
+              <PostCard
+                key={row.id}
+                {...row}
+                media={mediaByPost.get(row.id) ?? null}
+              />
+            ))}
+          </ul>
+        )}
+      </main>
+    );
+
 }
