@@ -1,5 +1,7 @@
 # Plan: Social Copilot
 
+> **Referencia histórica.** Este fue el plan inicial. El estado actual, la arquitectura vigente y lo que sigue están en [`../PROJECT.md`](../PROJECT.md).
+
 Estado: BORRADOR para revisión. No se ha escrito código de la app.
 
 ## 1. Punto de partida (repo actual)

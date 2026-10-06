@@ -5,10 +5,9 @@ import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { posts, socialAccounts, postMedia } from "@/db/schema";
-import { 
-    publishToThreads,
-    THREADS_MAX_CHARS,
-} from "@/lib/providers/threads";
+import { THREADS_MAX_CHARS } from "@/lib/providers/threads";
+import { markPostFailed, publishPostById } from "@/lib/publish";
+import  { schedulePublish } from "@/lib/queue";
 
 export type PublishState = { ok: boolean; message: string } | null;
 
@@ -31,6 +30,21 @@ export async function publishPost(
       ? { url: mediaUrl, type: mediaType as "IMAGE" | "VIDEO", fileId: mediaFileId }
       : null;
 
+  const scheduledAtRaw = String(formData.get("scheduledAt") ?? "");
+  let runAt: Date | null = null;
+  if (scheduledAtRaw) {
+    runAt = new Date(scheduledAtRaw);
+    if (
+      Number.isNaN(runAt.getTime()) ||
+      runAt.getTime() < Date.now() + 60_000
+    ) {
+      return {
+        ok: false,
+        message: "Pick a date at least one minute in the future.",
+      };
+    }
+  }
+
   if (!body && !media) return { ok: false, message: "Write something first." };
   if (body.length > THREADS_MAX_CHARS) {
     return { ok: false, message: `Maximum ${THREADS_MAX_CHARS} characters.` };
@@ -49,7 +63,12 @@ export async function publishPost(
 
   const [post] = await db
     .insert(posts)
-    .values({ userId, body, status: "publishing", socialAccountId: account.id })
+    .values({ 
+      userId, 
+      body, 
+      status: runAt ? "scheduled" : "publishing",
+      scheduledAt: runAt, 
+      socialAccountId: account.id })
     .returning({ id: posts.id });
 
   if (media) {
@@ -61,18 +80,31 @@ export async function publishPost(
     });
   }
 
+  if (runAt) {
+    try {
+      await Promise.race([
+        schedulePublish(post.id, runAt),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Queue timeout")), 5000),
+        ),
+      ]);
+    } catch {
+      await markPostFailed(post.id, "Scheduling is not available right now.");
+      return {
+        ok: false,
+        message:
+          "Scheduling is not available right now. Please try again later.",
+      };
+    }
+    revalidatePath("/dashboard");
+    return { ok: true, message: "Post scheduled." };
+  }
+
   try {
-    const externalId = await publishToThreads(account, body, media);
-    await db
-      .update(posts)
-      .set({ status: "published", externalId })
-      .where(eq(posts.id, post.id));
+    await publishPostById(post.id);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    await db
-      .update(posts)
-      .set({ status: "failed", error: message })
-      .where(eq(posts.id, post.id));
+    await markPostFailed(post.id, message);
     return { ok: false, message };
   }
 

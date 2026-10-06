@@ -19,12 +19,14 @@ const ALLOWED_TYPES: Record<string, string> = {
 export function ComposeForm({ accounts }: { accounts: Account[] }) {
   const [text, setText] = useState("");
   const [media, setMedia] = useState<Media | null>(null);
+  const [scheduledAt, setScheduledAt] = useState("");
   const [state, action, pending] = useActionState<PublishState, FormData>(
     async (prev, formData) => {
       const result = await publishPost(prev, formData);
       if (result?.ok) {
         setText("");
         setMedia(null);
+        setScheduledAt("");
       }
       return result;
     },
@@ -33,6 +35,7 @@ export function ComposeForm({ accounts }: { accounts: Account[] }) {
 
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  
 
   async function handleFile(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -76,7 +79,7 @@ export function ComposeForm({ accounts }: { accounts: Account[] }) {
         folder: "/so-pilot",
       });
       if (!result.url) throw new Error("The upload failed.");
-
+      
       setMedia({
         url: result.url,
         fileId: result.fileId ?? "",
@@ -159,6 +162,35 @@ export function ComposeForm({ accounts }: { accounts: Account[] }) {
         )}
       </div>
 
+      <div className="flex flex-col gap-1">
+        <label htmlFor="schedule" className="text-sm text-muted-foreground">
+          Schedule (optional)
+        </label>
+        <div className="flex items-center gap-2">
+          <input
+            id="schedule"
+            type="datetime-local"
+            value={scheduledAt}
+            onChange={(e) => setScheduledAt(e.target.value)}
+            className="rounded-md border bg-background p-2 text-sm"
+          />
+          {scheduledAt && (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setScheduledAt("")}
+            >
+              Clear
+            </Button>
+          )}
+        </div>
+        <input
+          type="hidden"
+          name="scheduledAt"
+          value={scheduledAt ? new Date(scheduledAt).toISOString() : ""}
+        />
+      </div>
+
       <div className="flex items-center justify-between">
         <span
           className={
@@ -170,7 +202,7 @@ export function ComposeForm({ accounts }: { accounts: Account[] }) {
           {text.length}/{THREADS_MAX_CHARS}
         </span>
         <Button type="submit" disabled={pending}>
-          {pending ? "Publishing..." : "Publish"}
+          {pending ? scheduledAt ? "Scheduling..." : "Publishing..." : scheduledAt ? "Schedule" : "Publish"}
         </Button>
       </div>
 

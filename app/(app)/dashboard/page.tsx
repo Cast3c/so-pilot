@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { postMedia, posts, socialAccounts } from "@/db/schema";
 import { buttonVariants } from "@/components/ui/button";
 import { PostCard } from "@/components/post-card";
+import { AutoRefresh } from "@/components/auto-refresh";
 
 const FILTERS = [
   { value: "all", label: "All" },
@@ -31,6 +32,7 @@ export default async function DashboardPage({
       status: posts.status,
       error: posts.error,
       createdAt: posts.createdAt,
+      scheduledAt: posts.scheduledAt,
       accountName: socialAccounts.displayName,
       accountAvatar: socialAccounts.avatarUrl,
       provider: socialAccounts.provider,
@@ -58,9 +60,13 @@ export default async function DashboardPage({
     : [];
 
   const mediaByPost = new Map(media.map((item) => [item.postId, item]));
+  const hasPublishing = rows.some((row) => row.status === "publishing");
+  const hasScheduled = rows.some((row) => row.status === "scheduled");
+  const refreshInterval = hasPublishing ? 3000 : hasScheduled ? 15000 : 0;
 
   return (
     <main className="mx-auto max-w-2xl p-8">
+      <AutoRefresh intervalMs={refreshInterval} />
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-3xl font-bold">Posts</h1>
         <a href="/compose" className={buttonVariants()}>
