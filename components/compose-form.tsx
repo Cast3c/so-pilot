@@ -9,6 +9,12 @@ import { upload } from "@imagekit/next";
 type Account = { id: number; displayName: string | null; provider: string };
 type Media = { url: string; fileId: string; type: "IMAGE" | "VIDEO" };
 const MAX_SIZE_MB = 25;
+const ALLOWED_TYPES: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "video/mp4": "mp4",
+  "video/quicktime": "mov",
+};
 
 export function ComposeForm({ accounts }: { accounts: Account[] }) {
   const [text, setText] = useState("");
@@ -19,7 +25,7 @@ export function ComposeForm({ accounts }: { accounts: Account[] }) {
       if (result?.ok) {
         setText("");
         setMedia(null);
-      };
+      }
       return result;
     },
     null,
@@ -27,21 +33,26 @@ export function ComposeForm({ accounts }: { accounts: Account[] }) {
 
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  
-
 
   async function handleFile(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
-    const safeName = file?.name
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/\.[^.]+$/, "")
-      .replace(/[^a-zA-Z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 40) || "media";
-    const extension = file?.name.split(".").pop()?.toLowerCase() ?? "jpg";
     event.target.value = "";
     if (!file) return;
+
+    const extension = ALLOWED_TYPES[file.type];
+    if (!extension) {
+      setUploadError("Only JPG, PNG, MP4 or MOV files are allowed.");
+      return;
+    }
+
+    const safeName =
+      file.name
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/\.[^.]+$/, "")
+        .replace(/[^a-zA-Z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 40) || "media";
 
     if (file.size > MAX_SIZE_MB * 1024 * 1024) {
       setUploadError(`The file must be smaller than ${MAX_SIZE_MB} MB.`);
