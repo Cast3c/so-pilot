@@ -20,7 +20,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${outfit.className} scroll-smooth`}>
+    <html lang="en" className={`${outfit.className} scroll-smooth`} data-scroll-behavior="smooth">
       <body>
         <ClerkProvider>
           {children}

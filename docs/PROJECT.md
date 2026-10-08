@@ -1,7 +1,7 @@
 # So-Pilot (Social Copilot)
 
 > Documento vivo. Léelo de arriba abajo para entender **qué es** el proyecto, **cómo está construido**, **en qué etapa estamos** y **qué sigue**.
-> Última actualización: 2026-10-06.
+> Última actualización: 2026-10-08.
 
 ---
 
@@ -20,6 +20,7 @@ So-Pilot es una aplicación web para **escribir una vez, programar y publicar en
 3. Escribir un post con texto, imagen o vídeo y **publicarlo ahora** en Threads.
 4. **Programar** el post para una fecha y hora: un proceso aparte lo publica a su hora.
 5. Ver todos los posts con su **estado**, filtrarlos y ver cómo se actualizan solos.
+6. Ver los posts en un **calendario mensual**, ubicados según la hora local del usuario.
 
 ---
 
@@ -35,13 +36,13 @@ Leyenda: ✅ hecho · 🟡 parcial · ⏳ pendiente
 | 3. Cuentas conectadas | OAuth con **Threads** ✅. Instagram y YouTube ⏳. Renovación de tokens ⏳ | 🟡 |
 | 4. Composer y media | Texto, imagen y vídeo (un archivo por post) para Threads | 🟡 |
 | 5. Programación | Cola BullMQ + Redis + worker, reintentos, estados | ✅ (solo local) |
-| 6. Calendario | Vista de mes con los posts programados | ⏳ **siguiente** |
+| 6. Calendario | Vista de mes con los posts programados | ✅ |
 | 7. Auto-respuestas | Responder comentarios por palabras clave | ⏳ |
 | 8. Pulido | Inglés/Español, tema oscuro, estados vacíos y de error, accesibilidad | ⏳ |
 
 ### Qué sigue (en orden)
-1. **Calendario** de posts programados (Fase 6).
-2. **Auto-respuestas** por palabras clave (Fase 7).
+1. **Auto-respuestas** por palabras clave (Fase 7).
+2. **Cancelar o editar** un post programado (hoy no se puede).
 3. **Instagram y YouTube** (TikTok queda para después).
 4. **Internacionalización** (inglés y español con `next-intl`).
 5. **Cobro real** con Clerk Billing cuando se decida monetizar.
@@ -65,9 +66,10 @@ Pendientes técnicos detallados: ver sección 11.
 | Publicación automática a su hora con reintentos (3 intentos) | `worker/index.ts` |
 | Listado de posts con cuenta, miniatura, estado, error y fecha | `/dashboard` |
 | Filtro por estado y actualización automática de la lista | `components/auto-refresh.tsx` |
+| Calendario mensual con los posts por día y hora local, estado por color y navegación entre meses | `/calendar`, `components/calendar-view.tsx` |
 
 ### Planificadas
-- Calendario de posts programados.
+- Detalle de un día del calendario (hoy el "+N more" no es clicable) y reprogramar arrastrando.
 - Respuestas automáticas a comentarios (primero por palabras clave; el modo con IA queda apagado por costo).
 - Publicar el mismo post en **varias redes a la vez** y previsualizar cómo se verá en cada una.
 - Instagram y YouTube; más redes después.
@@ -151,6 +153,12 @@ La **web** y el **worker** son dos procesos distintos. La web nunca espera días
 ### Flujo 4: ver el estado
 `/dashboard` consulta Neon (posts + cuenta + primera media). `AutoRefresh` vuelve a pedir la página cada 3 s si hay un post `publishing`, cada 15 s si solo hay `scheduled`, y no consulta si no hay nada pendiente.
 
+### Flujo 5: calendario
+1. La página `/calendar` (servidor) lee `?month=YYYY-MM` (validado; si es inválido usa el mes actual) y trae los posts de ese mes **con 7 días de margen** a cada lado.
+2. La fecha de un post es `scheduled_at` si existe, y si no, `created_at`.
+3. Pasa los posts al componente de cliente `CalendarView` como texto ISO.
+4. `CalendarView` arma la cuadrícula (semana de lunes a domingo) y decide **en el navegador** en qué día cae cada post, con la zona horaria local. Hasta hidratar no pinta posts ni el día de hoy, para evitar diferencias entre servidor y navegador.
+
 ### Estados de un post
 ```
 draft ─┐
@@ -175,7 +183,8 @@ publishing (publicar ahora) ─────────────────�
 | `/dashboard` | Protegida | Listado de posts, filtros y refresco automático |
 | `/compose` | Protegida | Crear, publicar o programar |
 | `/accounts` | Protegida | Cuentas conectadas |
-| `/calendar`, `/automations` | Protegida | **Placeholders** (aún sin funcionalidad) |
+| `/calendar` | Protegida | Calendario mensual (`?month=YYYY-MM`) |
+| `/automations` | Protegida | **Placeholder** (aún sin funcionalidad) |
 | `/api/oauth/threads/start`, `/callback` | API | Flujo OAuth |
 | `/api/imagekit-auth` | API | Firma temporal para subir archivos a ImageKit |
 
@@ -212,7 +221,7 @@ proxy.ts              integración de Clerk
 - RF4. Un usuario puede publicar un post de inmediato o programarlo para una fecha futura.
 - RF5. Un post programado se publica automáticamente a su hora, con reintentos si falla.
 - RF6. Un usuario ve el estado de cada post y el motivo cuando falla.
-- RF7. *(Pendiente)* Un usuario ve sus posts programados en un calendario.
+- RF7. Un usuario ve sus posts programados en un calendario.
 - RF8. *(Pendiente)* Un usuario define reglas de respuesta automática a comentarios.
 - RF9. *(Pendiente)* Un usuario publica el mismo post en varias redes a la vez.
 
@@ -282,7 +291,8 @@ Las variables que empiezan por `NEXT_PUBLIC_` se **incrustan al compilar**: debe
 - [ ] Reintentar manualmente un post `failed`.
 - [ ] Publicar en varias cuentas a la vez y vista previa por red.
 - [ ] Varios archivos por post.
-- [ ] Páginas de `calendar` y `automations`.
+- [ ] Página de `automations`.
+- [ ] Calendario: detalle de un día (el "+N more" no es clicable), crear un post desde un día y reprogramar arrastrando.
 
 ### Fiabilidad y escala
 - [ ] **Renovar el token de Threads** antes de que expire (~60 días). Hoy nadie lo renueva.
@@ -319,6 +329,7 @@ Las variables que empiezan por `NEXT_PUBLIC_` se **incrustan al compilar**: debe
 | Subida de archivos **directa a ImageKit** | Evita el límite de tamaño de las funciones de Vercel |
 | Un solo `publishPostById` compartido | La web (publicar ahora) y el worker (programado) usan exactamente la misma lógica |
 | Se guarda el post **antes** de publicar | Así queda registro aunque el proceso se corte a mitad |
+| El calendario agrupa los posts por día **en el navegador** | El servidor (Vercel) va en UTC y no conoce la zona del usuario: un post de las 22:00 locales caería en el día siguiente |
 
 ---
 
@@ -333,6 +344,8 @@ Las variables que empiezan por `NEXT_PUBLIC_` se **incrustan al compilar**: debe
 - **Vercel:** al renombrar la rama principal a `master` hay que actualizar la *Production Branch*. Un **Redeploy** reconstruye el mismo commit, no trae código nuevo.
 - **Dos gestores de paquetes:** tener `pnpm-lock.yaml` junto a `package-lock.json` hizo que Vercel usara pnpm y fallara. El proyecto usa **solo npm**.
 - **Zonas horarias:** `datetime-local` no incluye zona; se convierte a UTC en el navegador antes de enviarlo.
+- **Hidratación:** todo lo que dependa de la hora local (calendario, "hoy") no debe pintarse en el servidor, porque el HTML difiere del del navegador y React avisa de un *hydration mismatch*. Se resuelve con `useSyncExternalStore` (ver `useHydrated` en `calendar-view.tsx`); las reglas de ESLint del proyecto marcan como error el `setState` dentro de un `useEffect`.
+- **Scroll suave:** si el `<html>` usa `scroll-smooth`, Next 16 exige además `data-scroll-behavior="smooth"`; si no, avisa en la consola.
 
 ---
 
