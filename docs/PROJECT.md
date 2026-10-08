@@ -43,7 +43,7 @@ Leyenda: ✅ hecho · 🟡 parcial · ⏳ pendiente
 ### Qué sigue (en orden)
 1. **Auto-respuestas** por palabras clave (Fase 7).
 2. **Cancelar o editar** un post programado (hoy no se puede).
-3. **Instagram y YouTube** (TikTok queda para después).
+3. **Más redes:** Instagram, YouTube y LinkedIn (TikTok queda para después). Ver el orden sugerido en la sección 11, "Aprobaciones de plataformas".
 4. **Internacionalización** (inglés y español con `next-intl`).
 5. **Cobro real** con Clerk Billing cuando se decida monetizar.
 
@@ -91,7 +91,7 @@ Pendientes técnicos detallados: ver sección 11.
 | **Meta for Developers** | App con el caso de uso "API de Threads" | Gratuito, **modo desarrollo** | En uso |
 | **Redis** (Docker) | Almacén de la cola de publicaciones | Local, gratuito | En uso (solo local) |
 | **Anthropic API** | Respuestas con IA (futuro) | De pago | No usado |
-| **Instagram / YouTube / TikTok APIs** | Más redes | Gratuitas con límites y revisiones | No usadas |
+| **Instagram / YouTube / TikTok / LinkedIn APIs** | Más redes | Gratuitas con límites y revisiones | No usadas |
 
 ---
 
@@ -305,8 +305,40 @@ Las variables que empiezan por `NEXT_PUBLIC_` se **incrustan al compilar**: debe
 ### Producto y negocio
 - [ ] Cobro real con Clerk Billing y límites por plan (`getPlan()`).
 - [ ] Instancia de **producción** de Clerk (requiere dominio propio).
-- [ ] Revisión de la app de Meta para que otros usuarios (no solo testers) puedan conectar su cuenta, y política de privacidad.
+- [ ] Aprobaciones de las plataformas para que otros usuarios (no solo testers) puedan conectar su cuenta. Ver la lista detallada en "Aprobaciones de plataformas", más abajo.
 - [ ] `next-intl` (inglés y español) y selector de tema claro/oscuro.
+
+### Aprobaciones de plataformas (checklist)
+
+> **Aviso:** esta lista se escribió de memoria sobre la documentación de cada plataforma. Los requisitos cambian con frecuencia: **verifícalos en la documentación oficial antes de empezar cada trámite.**
+
+**Hoy, ninguna red está abierta al público.** Cada una funciona solo con cuentas de prueba o con rol en la app. Abrir la app a cualquier usuario exige aprobaciones de terceros que no dependen del código y pueden tardar. Conviene empezar pronto.
+
+#### Requisitos comunes (se hacen una vez y sirven para todas)
+- [ ] **Dominio propio** con HTTPS (no `vercel.app`).
+- [ ] **Política de privacidad** y **términos del servicio** públicos y reales: qué datos se guardan, que los tokens se almacenan cifrados, y cómo se borran.
+- [ ] **Endpoint de borrado de datos** y de **desinstalación** que funcionen de verdad (hoy las URLs de Meta apuntan a la landing). Al recibirlos, hay que eliminar los tokens y datos del usuario.
+- [ ] **Verificación del negocio** o de la persona jurídica (varias plataformas la exigen).
+- [ ] **Vídeos de demostración** de cada permiso y una **cuenta de prueba** para los revisores.
+- [ ] Nombre, icono, descripción, categoría y correo de soporte de la app.
+- [ ] Instancia de **producción** de Clerk, con el dominio propio.
+
+#### Por plataforma
+| Plataforma | Estado hoy | Qué se necesita para abrirla a cualquier usuario |
+|---|---|---|
+| **Meta: Threads** | Modo desarrollo; solo cuentas con rol en la app (Threads Tester) | Pasar la app a **Live** con **App Review** de cada permiso usado (`threads_basic`, `threads_content_publish`, `threads_manage_replies`, `threads_read_replies`). Exige **verificación de negocio** y ser *proveedor de tecnología*, política de privacidad, URL de borrado de datos y *screencasts*. La revisión puede tardar de días a semanas y admite rechazos |
+| **Meta: Instagram** | No implementado. Misma app de Meta | Cuenta **Business o Creator** vinculada a una página de Facebook. Permisos de publicación y de comentarios (por ejemplo `instagram_content_publish` e `instagram_manage_comments`), con la misma revisión que Threads |
+| **Google: YouTube** | No implementado | Pantalla de consentimiento de OAuth y **verificación de la app** por usar *scopes* sensibles (subir vídeos, gestionar comentarios). Mientras no esté verificada: modo *Testing*, con **usuarios de prueba limitados**, tokens de refresco que **caducan a los 7 días**, y las subidas por API de proyectos sin verificar quedan **privadas** hasta pasar una auditoría. La cuota diaria es limitada y subir un vídeo consume mucha |
+| **TikTok** | No implementado | Registrar la app y solicitar *Content Posting API*. Sin **auditoría**, solo se puede publicar en **privado**. TikTok también exige cumplir sus directrices de interfaz (mostrar vista previa, opciones de privacidad y consentimiento del usuario) |
+| **LinkedIn** | No implementado | La app debe asociarse a una **página de empresa** de LinkedIn. **Publicar como persona** (*Share on LinkedIn*, permiso `w_member_social`) y **iniciar sesión con LinkedIn (OpenID Connect)** son productos de acceso **inmediato**, sin revisión. **Publicar como página de empresa** y **leer o responder comentarios** (necesario para las auto-respuestas) requieren la **Community Management API**, que se solicita y se aprueba, y suele pedir una organización legal verificada. Los tokens duran unos 60 días y la renovación puede exigir que el usuario vuelva a autorizar. La API de contenido va versionada (cabecera `LinkedIn-Version`) y la media se sube con sus APIs de imágenes y vídeos |
+
+#### Orden sugerido para añadir redes
+1. **LinkedIn** (publicar como persona): es la de menor barrera, porque puede funcionar para cualquier usuario sin revisión.
+2. **Instagram**: reutiliza la app de Meta y el trabajo de Threads, y entra en la misma revisión.
+3. **YouTube**: se puede construir ya con usuarios de prueba; el trámite de verificación pesa más.
+4. **TikTok**: la última, por la auditoría y las exigencias de interfaz.
+
+Para las **auto-respuestas** (Fase 7) el factor decisivo es qué redes permiten leer y responder comentarios sin trámites extra: en LinkedIn eso requiere la Community Management API, y en Meta, los permisos de comentarios aprobados.
 
 ### Calidad
 - [ ] No hay pruebas automáticas.
