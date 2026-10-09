@@ -19,9 +19,15 @@ export default function MarketingLayout({
           </Link>
 
           <nav className="hidden gap-6 text-sm text-muted-foreground md:flex">
-            <a href="#features" className="hover:text-foreground">Features</a>
-            <a href="#pricing" className="hover:text-foreground">Pricing</a>
-            <a href="#faq" className="hover:text-foreground">FAQ</a>
+            <a href="#features" className="hover:text-foreground">
+              Features
+            </a>
+            <a href="#pricing" className="hover:text-foreground">
+              Pricing
+            </a>
+            <a href="#faq" className="hover:text-foreground">
+              FAQ
+            </a>
           </nav>
 
           <div className="flex items-center gap-2">
@@ -46,8 +52,16 @@ export default function MarketingLayout({
 
       <main className="flex-1">{children}</main>
 
-      <footer className="border-t py-8 text-center text-sm text-muted-foreground">
-        © {new Date().getFullYear()} So-Pilot
+      <footer className="flex flex-col items-center gap-2 border-t py-8 text-sm text-muted-foreground">
+        <nav className="flex gap-4">
+          <Link href="/privacy" className="hover:text-foreground">
+            Privacy
+          </Link>
+          <Link href="/terms" className="hover:text-foreground">
+            Terms
+          </Link>
+        </nav>
+        <p>© {new Date().getFullYear()} So-Pilot</p>
       </footer>
     </div>
   );
