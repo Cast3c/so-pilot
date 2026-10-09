@@ -1,5 +1,5 @@
 import { auth } from "@clerk/nextjs/server";
-import { and, asc, between, eq, isNotNull, isNull, or } from "drizzle-orm";
+import { and, asc, between, eq, isNotNull, isNull, or, ne } from "drizzle-orm";
 import { db } from "@/db";
 import { posts, socialAccounts } from "@/db/schema";
 import { CalendarView } from "@/components/calendar-view";
@@ -30,7 +30,7 @@ export default async function CalendarPage({
       id: posts.id,
       body: posts.body,
       status: posts.status,
-      scheduledAt: posts.createdAt,
+      scheduledAt: posts.scheduledAt,
       createdAt: posts.createdAt,
       accountName: socialAccounts.displayName,
     })
@@ -39,6 +39,7 @@ export default async function CalendarPage({
     .where(
       and(
         eq(posts.userId, userId),
+        ne(posts.status, "cancelled"),
         or(
           and(isNotNull(posts.scheduledAt), between(posts.scheduledAt, start, end)),
           and(isNull(posts.scheduledAt), between(posts.createdAt, start, end))

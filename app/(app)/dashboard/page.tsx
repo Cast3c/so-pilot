@@ -14,6 +14,7 @@ const FILTERS = [
   { value: "publishing", label: "Publishing" },
   { value: "scheduled", label: "Scheduled" },
   { value: "draft", label: "Draft" },
+  { value: "cancelled", label: "Cancelled" }
 ] as const;
 
 export default async function DashboardPage({

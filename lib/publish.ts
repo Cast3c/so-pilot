@@ -5,8 +5,9 @@ import { publishToThreads } from "./providers/threads";
 
 export async function publishPostById(postId: number) {
     const [post] = await db.select().from(posts).where(eq(posts.id, postId));
-    if(!post) throw new Error("Post not found.");
+    if(!post) return;
     if(post.status === "published") return;
+    if(post.status === "cancelled") return;
 
     if(!post.socialAccountId) {
         throw new Error("The post has no connected account.");

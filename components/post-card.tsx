@@ -1,6 +1,8 @@
 import { formatDistanceToNow } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { cancelScheduledPost } from "@/app/(app)/dashboard/actions";
 
 const statusStyles: Record<
   string,
@@ -11,9 +13,11 @@ const statusStyles: Record<
   publishing: { label: "Publishing...", variant: "secondary" },
   scheduled: { label: "Scheduled", variant: "outline" },
   draft: { label: "Draft", variant: "outline" },
+  cancelled: { label: "Cancelled", variant: "outline" },
 };
 
 type PostCardProps = {
+  id: number;
   body: string;
   status: string;
   error: string | null;
@@ -25,7 +29,7 @@ type PostCardProps = {
   media: { url: string; type: string } | null;
 };
 
-export function PostCard({ body, status, error, createdAt, accountName, accountAvatar, provider, media, scheduledAt }: PostCardProps) {
+export function PostCard({ id, body, status, error, createdAt, accountName, accountAvatar, provider, media, scheduledAt }: PostCardProps) {
   const style = statusStyles[status] ?? { label: status, variant: "outline" as const };
 
   return (
@@ -72,15 +76,24 @@ export function PostCard({ body, status, error, createdAt, accountName, accountA
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
-
-      <p
-        className="text-xs text-muted-foreground"
-        title={createdAt.toLocaleString()}
-      >
-        {status === "scheduled" && scheduledAt
-          ? `Scheduled for ${scheduledAt.toLocaleString()}`
-          : formatDistanceToNow(createdAt, { addSuffix: true })}
-      </p>
+      <div className="flex items-center justify-between gap-3">
+        <p
+          className="text-xs text-muted-foreground"
+          title={createdAt.toLocaleString()}
+        >
+          {status === "scheduled" && scheduledAt
+            ? `Scheduled for ${scheduledAt.toLocaleString()}`
+            : formatDistanceToNow(createdAt, { addSuffix: true })}
+        </p>
+        {status === "scheduled" && (
+          <form action={cancelScheduledPost}>
+            <input type="hidden" name="id" value={id} />
+            <Button type="submit" variant="outline" size="sm">
+              Cancel
+            </Button>
+          </form>
+        )}
+      </div>
     </li>
   );
 }

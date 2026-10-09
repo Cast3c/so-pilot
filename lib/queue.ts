@@ -34,3 +34,13 @@ export async function schedulePublish(postId: number, runAt: Date) {
         }
     );
 }
+
+export async function cancelPublish(postId: number) {
+    try {
+        const job = await getPublishQueue().getJob(`post-${postId}`);
+        await job?.remove();
+    } catch (error) {
+        // The database is the source of truth: the worker skips cancelled posts.
+        console.error("[queue] could not remove job for post", postId, error);
+    }
+}

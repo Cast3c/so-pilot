@@ -42,7 +42,7 @@ Leyenda: ✅ hecho · 🟡 parcial · ⏳ pendiente
 
 ### Qué sigue (en orden)
 1. **Auto-respuestas** por palabras clave (Fase 7).
-2. **Cancelar o editar** un post programado (hoy no se puede).
+2. **Editar o reprogramar** un post programado (cancelarlo ya es posible).
 3. **Más redes:** Instagram, YouTube y LinkedIn (TikTok queda para después). Ver el orden sugerido en la sección 11, "Aprobaciones de plataformas".
 4. **Internacionalización** (inglés y español con `next-intl`).
 5. **Cobro real** con Clerk Billing cuando se decida monetizar.
@@ -67,6 +67,9 @@ Pendientes técnicos detallados: ver sección 11.
 | Listado de posts con cuenta, miniatura, estado, error y fecha | `/dashboard` |
 | Filtro por estado y actualización automática de la lista | `components/auto-refresh.tsx` |
 | Calendario mensual con los posts por día y hora local, estado por color y navegación entre meses | `/calendar`, `components/calendar-view.tsx` |
+| Cancelar un post programado desde el listado (pasa a `cancelled` y se quita de la cola; no aparece en el calendario) | `app/(app)/dashboard/actions.ts`, `lib/queue.ts` |
+| Páginas legales públicas: política de privacidad, términos del servicio y página de borrado de datos | `/privacy`, `/terms`, `/data-deletion` |
+| Callbacks de Meta para **desinstalar** la app y **borrar datos** de un usuario, con verificación de la firma | `app/api/webhooks/threads/`, `lib/meta.ts`, `lib/account-data.ts` |
 
 ### Planificadas
 - Detalle de un día del calendario (hoy el "+N more" no es clicable) y reprogramar arrastrando.
@@ -163,9 +166,12 @@ La **web** y el **worker** son dos procesos distintos. La web nunca espera días
 ```
 draft ─┐
        ├─► scheduled ──(llega la hora)──► publishing ──► published
-       │                                       │
+       │       │                               │
+       │       └─(el usuario cancela)─► cancelled
+       │
 publishing (publicar ahora) ───────────────────┴──► failed
 ```
+Solo un post `scheduled` puede cancelarse. Si el worker ya lo pasó a `publishing`, la cancelación no se aplica.
 
 ### Modelo de datos (`db/schema.ts`)
 | Tabla | Campos principales |
@@ -187,6 +193,10 @@ publishing (publicar ahora) ─────────────────�
 | `/automations` | Protegida | **Placeholder** (aún sin funcionalidad) |
 | `/api/oauth/threads/start`, `/callback` | API | Flujo OAuth |
 | `/api/imagekit-auth` | API | Firma temporal para subir archivos a ImageKit |
+| `/privacy`, `/terms` | Pública | Política de privacidad y términos del servicio |
+| `/data-deletion` | Pública | Instrucciones de borrado de datos; con `?code=` confirma una petición |
+| `/api/webhooks/threads/uninstall` | API (Meta) | Meta avisa de que un usuario quitó la app: se borran sus tokens |
+| `/api/webhooks/threads/delete` | API (Meta) | Meta pide borrar los datos de un usuario: se borran su cuenta, posts y media, y se devuelve un código de confirmación |
 
 ### Estructura de carpetas
 ```
@@ -196,7 +206,7 @@ app/api/              rutas de API (OAuth, ImageKit)
 components/           componentes propios (landing/, post-card, compose-form…)
 components/ui/        componentes de shadcn
 db/                   conexión (index.ts) y esquema (schema.ts)
-lib/                  crypto, plans, publish, queue
+lib/                  crypto, plans, publish, queue, meta (firmas), account-data (borrado), site (datos públicos)
 lib/providers/        un archivo por red social (hoy: threads.ts)
 worker/               proceso que publica los posts programados
 docs/                 documentación
@@ -209,6 +219,7 @@ proxy.ts              integración de Clerk
 - **`state` anti-CSRF** en el OAuth.
 - La media se valida en el servidor (solo URLs del propio ImageKit, tipos permitidos).
 - Las columnas sensibles (`access_token`) no se seleccionan en las páginas.
+- Los **webhooks de Meta** no usan sesión de Clerk: se autentican verificando la firma `signed_request` (HMAC-SHA256 con el secreto de la app, comparación en tiempo constante). Una firma inválida devuelve `400` sin más información.
 
 ---
 
@@ -287,10 +298,12 @@ Las variables que empiezan por `NEXT_PUBLIC_` se **incrustan al compilar**: debe
 ## 11. Pendientes técnicos y deuda
 
 ### Funcionalidad
-- [ ] Cancelar o editar un post programado (hoy no hay forma desde la interfaz).
+- [ ] Editar o reprogramar un post programado (cancelarlo ya se puede desde el listado).
 - [ ] Reintentar manualmente un post `failed`.
 - [ ] Publicar en varias cuentas a la vez y vista previa por red.
 - [ ] Varios archivos por post.
+- [ ] **Webhooks de borrado por red:** al llegar la segunda red, convertir las rutas en una ruta dinámica `app/api/webhooks/[provider]/` con un adaptador por red (verificar firma y responder en el formato de cada plataforma). La lógica de borrado ya es común (`lib/account-data.ts`, recibe el `provider`). Meta usa `signed_request`; TikTok usa una cabecera firmada; **YouTube y LinkedIn no avisan**: hay que detectar el token revocado al publicar y marcar la cuenta como `revoked`.
+- [ ] **Borrado de usuario:** webhook de Clerk (`user.deleted`) que borre todos los datos del `user_id`, y un botón "Eliminar mis datos" en la app.
 - [ ] Página de `automations`.
 - [ ] Calendario: detalle de un día (el "+N more" no es clicable), crear un post desde un día y reprogramar arrastrando.
 
@@ -316,8 +329,12 @@ Las variables que empiezan por `NEXT_PUBLIC_` se **incrustan al compilar**: debe
 
 #### Requisitos comunes (se hacen una vez y sirven para todas)
 - [ ] **Dominio propio** con HTTPS (no `vercel.app`).
-- [ ] **Política de privacidad** y **términos del servicio** públicos y reales: qué datos se guardan, que los tokens se almacenan cifrados, y cómo se borran.
-- [ ] **Endpoint de borrado de datos** y de **desinstalación** que funcionen de verdad (hoy las URLs de Meta apuntan a la landing). Al recibirlos, hay que eliminar los tokens y datos del usuario.
+- [x] **Política de privacidad** y **términos del servicio** públicos: `/privacy` y `/terms` (borrador en inglés; revisar el texto, sobre todo los plazos, y añadir la versión en español).
+- [x] **Endpoint de borrado de datos** y de **desinstalación**: `/api/webhooks/threads/delete` y `/uninstall`, con verificación de firma y página de estado en `/data-deletion`. Probados en local con una firma simulada.
+- [ ] **Registrar esas URLs en Meta** (caso de uso de Threads → Configuración, y Configuración básica) una vez desplegadas. Hoy las URLs de Meta siguen apuntando a la landing.
+- [ ] **Confirmar con una llamada real de Meta** que el `user_id` recibido coincide con el `external_id` que guardamos y que la firma se verifica con `THREADS_APP_SECRET`. Si no coincide, ajustar `lib/meta.ts` o `lib/account-data.ts`.
+- [ ] **Persistir las peticiones de borrado:** hoy `/data-deletion?code=...` muestra la confirmación para **cualquier** código, porque no se guarda ninguno. Conviene una tabla `deletion_requests` (código, usuario de la red, fecha, estado) para que la página solo confirme códigos reales.
+- [x] **Trabajos de la cola de posts eliminados por el borrado de datos:** el worker los ignora si el post ya no existe (`publishPostById` devuelve sin error). Queda opcional quitarlos también de Redis con `cancelPublish` al borrar.
 - [ ] **Verificación del negocio** o de la persona jurídica (varias plataformas la exigen).
 - [ ] **Vídeos de demostración** de cada permiso y una **cuenta de prueba** para los revisores.
 - [ ] Nombre, icono, descripción, categoría y correo de soporte de la app.
@@ -361,6 +378,7 @@ Para las **auto-respuestas** (Fase 7) el factor decisivo es qué redes permiten 
 | Subida de archivos **directa a ImageKit** | Evita el límite de tamaño de las funciones de Vercel |
 | Un solo `publishPostById` compartido | La web (publicar ahora) y el worker (programado) usan exactamente la misma lógica |
 | Se guarda el post **antes** de publicar | Así queda registro aunque el proceso se corte a mitad |
+| La **base de datos manda** sobre la cola de Redis al cancelar | Neon y Redis pueden desincronizarse (Redis caído, o el worker ya tomó el trabajo). El estado `cancelled` en Neon es la verdad, el worker lo comprueba antes de publicar, y quitar el trabajo de Redis es una limpieza que se intenta pero no es crítica |
 | El calendario agrupa los posts por día **en el navegador** | El servidor (Vercel) va en UTC y no conoce la zona del usuario: un post de las 22:00 locales caería en el día siguiente |
 
 ---
