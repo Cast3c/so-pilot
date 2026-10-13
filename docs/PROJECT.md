@@ -40,6 +40,8 @@ Leyenda: ✅ hecho · 🟡 parcial · ⏳ pendiente
 | 7. Auto-respuestas | Responder comentarios por palabras clave | ⏳ |
 | 8. Pulido | Inglés/Español, tema oscuro, estados vacíos y de error, accesibilidad | ⏳ |
 
+> **El orden de lo que sigue lo decide el filtro de features de [`ROADMAP.md`](ROADMAP.md)**, que clasifica cada idea por etapa (aprendizaje, listo para revisión, lanzamiento y crecimiento) según su valor para llegar a ingresos.
+
 ### Qué sigue (en orden)
 1. **Auto-respuestas** por palabras clave (Fase 7).
 2. **Editar o reprogramar** un post programado (cancelarlo ya es posible).
@@ -380,6 +382,7 @@ Para las **auto-respuestas** (Fase 7) el factor decisivo es qué redes permiten 
 | Se guarda el post **antes** de publicar | Así queda registro aunque el proceso se corte a mitad |
 | La **base de datos manda** sobre la cola de Redis al cancelar | Neon y Redis pueden desincronizarse (Redis caído, o el worker ya tomó el trabajo). El estado `cancelled` en Neon es la verdad, el worker lo comprueba antes de publicar, y quitar el trabajo de Redis es una limpieza que se intenta pero no es crítica |
 | El calendario agrupa los posts por día **en el navegador** | El servidor (Vercel) va en UTC y no conoce la zona del usuario: un post de las 22:00 locales caería en el día siguiente |
+| **Precio mínimo de 29 USD/mes** y clientela mínima de 83 pagadores (141 con un trabajador) para el sueldo objetivo de 2.000 USD/mes | Decisión del dueño del 2026-10-12, a validar en entrevistas. Con 9 USD harían falta ≈ 342 pagadores, inalcanzables en un plazo razonable para un solo desarrollador sin presupuesto. Detalle y supuestos en [`ROADMAP.md`](ROADMAP.md) |
 
 ---
 
@@ -408,3 +411,11 @@ Actualiza este archivo cuando cambie alguno de estos puntos:
 - Aparece una trampa nueva que costó tiempo (sección 13).
 
 Para el detalle técnico original del plan, ver [`docs/plans/social-copilot.md`](plans/social-copilot.md), que queda como referencia histórica.
+
+---
+
+## 15. Nota: cambio de enfoque por ahora (2026-10-13)
+
+Por decisión del dueño, **por ahora el enfoque pasa de monetizar a aprovechamiento personal**. El contenido de este documento no se modifica: la meta de SaaS, los planes y la lista "Qué sigue" siguen escritos como estaban. Ver la nota equivalente en [`ROADMAP.md`](ROADMAP.md), sección 8.
+
+**Precisión (2026-10-13):** aunque no se busque monetizar, la app se construye completa y con seriedad de producto real (todas las redes previstas, métricas, edición y publicación en varias redes). Detalle en `ROADMAP.md`, sección 8.
