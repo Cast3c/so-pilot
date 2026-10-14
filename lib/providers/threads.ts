@@ -1,8 +1,26 @@
 import { decrypt } from "@/lib/crypto";
+import type { SocialProvider } from "./types";
+import { ProviderError, type ErrorClass } from "./errors";
 
 const GRAPH = "https://graph.threads.net/v1.0";
 
 export const THREADS_MAX_CHARS = 500;
+
+function classifyHttpStatus(status: number): ErrorClass {
+  if(status === 401 || status === 403) {
+    return "auth";
+  }
+
+  if(status === 400 || status === 422) {
+    return "validation";
+  }
+
+  if(status === 429) {
+    return "rate_limit";
+  }
+
+  return "unknown";
+}
 
 async function graphPost(path: string, params: Record<string, string>) {
     const res = await fetch(`${GRAPH}${path}`, {
@@ -22,8 +40,8 @@ async function graphPost(path: string, params: Record<string, string>) {
         e?.error_subcode,
         e?.message,
       );
-      throw new Error(
-        `${e?.message ?? "Threads API error"} (${path}, code ${e?.code ?? res.status})`,
+      throw new ProviderError(
+        classifyHttpStatus(res.status), e?.message, data
       );
     }
 
@@ -38,7 +56,9 @@ async function graphGet(path: string, params: Record<string, string>) {
   const res = await fetch(url);
   const data = await res.json().catch(() => null);
   if (!res.ok) {
-    throw new Error(data?.error?.message ?? `Threads API error (${res.status})`);
+    throw new ProviderError(
+      classifyHttpStatus(res.status), data?.error?.message ?? `Threads API error (${res.status})`,data
+    );
   }
   return data;
 }
@@ -52,11 +72,13 @@ async function waitUntilReady(creationId: string, token: string) {
 
     if (data.status === "FINISHED") return;
     if (data.status === "ERROR" || data.status === "EXPIRED") {
-      throw new Error(data.error_message ?? `Media processing ${data.status}`);
+      throw new ProviderError(
+        "unknown", data.error_message ?? `Media processing ${data.status}, data`
+      );
     }
     await new Promise((resolve) => setTimeout(resolve, 3000));
   }
-  throw new Error("Media processing timed out.");
+  throw new ProviderError("transient", "Media processing timed out.");
 }
 
 export async function publishToThreads(
@@ -85,4 +107,22 @@ export async function publishToThreads(
     })
 
     return published.id;
+}
+
+export const threadsProvider: SocialProvider = {
+  capabilities: {
+    id: "threads",
+    label: "Threads",
+    maxTextLength: THREADS_MAX_CHARS,
+    media: {
+      allowed: ["IMAGE", "VIDEO"], required: false, maxItems: 1
+    },
+  },
+  async publish(account, input) {
+    const externalId = await publishToThreads(
+      account, input.text, input.media[0] ?? null 
+    )
+
+    return { externalId }
+  }
 }

@@ -1,7 +1,7 @@
 import { asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { postMedia, posts, socialAccounts } from "@/db/schema";
-import { publishToThreads } from "./providers/threads";
+import { getProvider, type ProviderId } from "./providers";
 
 export async function publishPostById(postId: number) {
     const [post] = await db.select().from(posts).where(eq(posts.id, postId));
@@ -31,11 +31,11 @@ export async function publishPostById(postId: number) {
         .set({ status: "publishing" })
         .where(eq(posts.id, postId));
     
-    const externalId = await publishToThreads(
-        account,
-        post.body,
-        media ? { url: media.url, type: media.type as "IMAGE" | "VIDEO" } : null
-    );
+    const provider = getProvider(account.provider as ProviderId);
+    const { externalId } = await provider.publish(account, {
+        text: post.body,
+        media: media ? [{ url: media.url, type: media.type as "IMAGE" | "VIDEO" }] : []
+    });
 
     await db 
         .update(posts)
