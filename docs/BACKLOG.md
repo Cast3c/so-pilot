@@ -26,7 +26,7 @@ Leyenda: ✅ hecho · 🟡 parcial · ⏳ pendiente · ⏸ en pausa
 | A1. Vitest y función `aggregatePostStatus` con pruebas | ✅ | 9 pruebas en verde |
 | A2. Tabla `post_targets` y migración de datos | ✅ | 17 destinos, idempotente, verificado |
 | A3. Contrato de red y errores clasificados; Threads como primer adaptador | ✅ | Cerrada 2026-10-14: publicación de texto e imagen verificada desde Compose; `posts` y `post_targets` en `published` |
-| A4. Publicación por destino: cola, worker, cancelación y estado agregado | ⏳ | |
+| A4. Publicación por destino: cola, worker, cancelación y estado agregado | ✅ | Cerrada 2026-10-15: cola por destino (`target-<id>`), worker con errores sin reintento (`UnrecoverableError`), Compose crea y publica destinos, cancelar quita los trabajos de la cola. Verificado: publicar al momento (post 26), programado (post 27) y cancelado (post 28, destino 58, trabajo retirado de Redis). Funciones antiguas `publishPostById` y `markPostFailed` eliminadas |
 | A5. Compose con varias cuentas y resultado por destino | ⏳ | |
 | A6. Listado, calendario y tarjetas con destinos | ⏳ | |
 | A7. Renovación de tokens y estado `revoked` con aviso de reconexión | ⏳ | El token de Threads dura ≈ 60 días |

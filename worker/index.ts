@@ -1,27 +1,38 @@
-import { Worker } from "bullmq";
+import { UnrecoverableError, Worker } from "bullmq";
 import { createRedisConnection, PUBLISH_QUEUE } from "@/lib/queue";
-import { markPostFailed, publishPostById } from "@/lib/publish";
+import { markTargetFailed, publishTargetById } from "@/lib/publish";
+import { ProviderError } from "@/lib/providers";
 
-const worker = new Worker<{ postId: number }>(
+const worker = new Worker<{ targetId: number }>(
   PUBLISH_QUEUE,
   async (job) => {
-    await publishPostById(job.data.postId);
+    try{
+      await publishTargetById(job.data.targetId)
+    }
+    catch (error){
+      if(error instanceof ProviderError && (error.kind === "auth" || error.kind === "validation")){
+        throw new UnrecoverableError(error.message);
+      }
+      throw error;
+    }
   },
   { connection: createRedisConnection(), concurrency: 3 }
 );
 
 worker.on("completed", (job) => {
-  console.log(`[worker] post ${job.data.postId} published`);
+  console.log(`[worker] target ${job.data.targetId} published`);
 });
 
 worker.on("failed", async (job, error) => {
   if (!job) return;
   const maxAttempts = job.opts.attempts ?? 1;
   console.error(
-    `[worker] post ${job.data.postId} failed (attempt ${job.attemptsMade}/${maxAttempts}): ${error.message}`
+    `[worker] target ${job.data.targetId} failed (attempt ${job.attemptsMade}/${maxAttempts}): ${error.message}`
   );
-  if (job.attemptsMade >= maxAttempts) {
-    await markPostFailed(job.data.postId, error.message);
+  
+  const isFinal = job.attemptsMade >= maxAttempts || error instanceof UnrecoverableError;
+  if (isFinal) {
+    await markTargetFailed(job.data.targetId, error.message);
   }
 });
 

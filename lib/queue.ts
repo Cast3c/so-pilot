@@ -18,15 +18,15 @@ function getPublishQueue() {
     return queue;
 }
 
-export async function schedulePublish(postId: number, runAt: Date) {
+export async function schedulePublishTarget(targetId: number, runAt: Date) {
     const delay = Math.max(0, runAt.getTime() - Date.now());
 
     await getPublishQueue().add(
         "publish",
-        { postId },
+        { targetId },
         {
             delay,
-            jobId: `post-${postId}`,
+            jobId: `target-${targetId}`,
             attempts: 3,
             backoff: { type: "exponential", delay: 30_000 },
             removeOnComplete: true,
@@ -35,12 +35,12 @@ export async function schedulePublish(postId: number, runAt: Date) {
     );
 }
 
-export async function cancelPublish(postId: number) {
+export async function cancelPublishTarget(targetId: number) {
     try {
-        const job = await getPublishQueue().getJob(`post-${postId}`);
+        const job = await getPublishQueue().getJob(`target-${targetId}`);
         await job?.remove();
     } catch (error) {
-        // The database is the source of truth: the worker skips cancelled posts.
-        console.error("[queue] could not remove job for post", postId, error);
+        // The database is the source of truth: the worker skips cancelled targets.
+        console.error("[queue] could not remove job for target", targetId, error);
     }
 }

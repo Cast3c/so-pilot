@@ -4,10 +4,10 @@ import { auth } from "@clerk/nextjs/server";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
-import { posts, socialAccounts, postMedia } from "@/db/schema";
+import { posts, socialAccounts, postMedia, postTargets } from "@/db/schema";
 import { THREADS_MAX_CHARS } from "@/lib/providers/threads";
-import { markPostFailed, publishPostById } from "@/lib/publish";
-import  { schedulePublish } from "@/lib/queue";
+import { markTargetFailed, publishTargetById } from "@/lib/publish";
+import  { schedulePublishTarget } from "@/lib/queue";
 
 export type PublishState = { ok: boolean; message: string } | null;
 
@@ -80,16 +80,27 @@ export async function publishPost(
     });
   }
 
+
+  const [target] = await db
+    .insert(postTargets)
+    .values({
+      postId: post.id,
+      socialAccountId: account.id,
+      provider: account.provider,
+      status: runAt ? "scheduled" : "publishing",
+    })
+    .returning({ id: postTargets.id })
+
   if (runAt) {
     try {
       await Promise.race([
-        schedulePublish(post.id, runAt),
+        schedulePublishTarget(target.id, runAt),
         new Promise((_, reject) =>
           setTimeout(() => reject(new Error("Queue timeout")), 5000),
         ),
       ]);
     } catch {
-      await markPostFailed(post.id, "Scheduling is not available right now.");
+      await markTargetFailed(target.id, "Scheduling is not available right now.");
       return {
         ok: false,
         message:
@@ -101,10 +112,10 @@ export async function publishPost(
   }
 
   try {
-    await publishPostById(post.id);
+    await publishTargetById(target.id);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    await markPostFailed(post.id, message);
+    await markTargetFailed(target.id, message);
     return { ok: false, message };
   }
 
